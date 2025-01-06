@@ -6,34 +6,22 @@
  * Implementation of a driver for the MPU-6050 Six-Axis (Accelerometer + Gyro) Sensor.
  */
 
-#include "mpu6050.h"
-#include <Wire.h>  // I2C
+#include "mpu6050.hpp"
+#include <Wire.h>
 
-// Enum for gyroscope range
-typedef enum {
-    GYRO_RANGE_250DPS = 0x00,  // ±250°/s
-    GYRO_RANGE_500DPS = 0x08,  // ±500°/s
-    GYRO_RANGE_1000DPS = 0x10, // ±1000°/s
-    GYRO_RANGE_2000DPS = 0x18  // ±2000°/s
-} GyroRange;
-
-// Enum for accelerometer range
-typedef enum {
-    ACCEL_RANGE_2G = 0x00,  // ±2g
-    ACCEL_RANGE_4G = 0x08,  // ±4g
-    ACCEL_RANGE_8G = 0x10,  // ±8g
-    ACCEL_RANGE_16G = 0x18  // ±16g
-} AccelRange;
-
-/**
+MPU6050::MPU6050(uint8_t address, GyroRange gRange, AccelRange aRange) :
+    i2cAddress(address),
+    gyroRange(gRange),
+    accelRange(aRange) {
+}
+/*
  * Initialize MPU6050 with default settings.
  * Returns true if successful, false otherwise.
  */
-bool MPU6050_init(GyroRange gyroRange = GYRO_RANGE_250DPS, AccelRange accelRange = ACCEL_RANGE_2G) {
-    // Wake up the MPU6050
+bool MPU6050::MPU6050_init() {    // Wake up the MPU6050
     Wire.beginTransmission(MPU6050_ADDR);
     Wire.write(MPU6050_PWR_MGMT_1_REGISTER);
-    Wire.write(0x00); // Wake up MPU6050
+    Wire.write(0x00);
     if (Wire.endTransmission() != 0) {
         return false;
     }
@@ -41,7 +29,7 @@ bool MPU6050_init(GyroRange gyroRange = GYRO_RANGE_250DPS, AccelRange accelRange
     // Set sample rate to 1kHz
     Wire.beginTransmission(MPU6050_ADDR);
     Wire.write(MPU6050_SMPLRT_DIV_REGISTER);
-    Wire.write(0x00); // 1kHz sample rate
+    Wire.write(0x00);
     if (Wire.endTransmission() != 0) {
         return false;
     }
@@ -49,7 +37,7 @@ bool MPU6050_init(GyroRange gyroRange = GYRO_RANGE_250DPS, AccelRange accelRange
     // Set the Digital Low Pass Filter to 0 (no filtering)
     Wire.beginTransmission(MPU6050_ADDR);
     Wire.write(MPU6050_CONFIG_REGISTER);
-    Wire.write(0x00); // No filtering
+    Wire.write(0x00);
     if (Wire.endTransmission() != 0) {
         return false;
     }
@@ -77,7 +65,9 @@ bool MPU6050_init(GyroRange gyroRange = GYRO_RANGE_250DPS, AccelRange accelRange
  * Read raw acceleration and gyroscope data from MPU6050.
  * Returns true if successful, false otherwise.
  */
-bool MPU6050_read(MPU6050_Data *data) {
+bool MPU6050::MPU6050_read(MPU6050_Data *data) {
+    if (!data) return false;
+
     uint8_t buffer[14];
 
     // Read 14 bytes from the MPU6050 starting at the ACCEL_OUT_REGISTER
@@ -88,7 +78,7 @@ bool MPU6050_read(MPU6050_Data *data) {
     }
 
     // Request 14 bytes from the MPU6050
-    Wire.requestFrom(MPU6050_ADDR, (uint8_t)14);
+    Wire.requestFrom(MPU6050_ADDR, 14);
     if (Wire.available() != 14) {
         return false;
     }
@@ -107,4 +97,28 @@ bool MPU6050_read(MPU6050_Data *data) {
     data->gyro_z = (buffer[12] << 8) | buffer[13];
 
     return true;
+}
+
+float MPU6050::convertAccel(int16_t rawValue) {
+    float sensitivity;
+    switch (accelRange) {
+        case ACCEL_RANGE_2G:  sensitivity = 16384.0; break;
+        case ACCEL_RANGE_4G:  sensitivity = 8192.0; break;
+        case ACCEL_RANGE_8G:  sensitivity = 4096.0; break;
+        case ACCEL_RANGE_16G: sensitivity = 2048.0; break;
+        default:              sensitivity = 16384.0; break; // Default to ±2g
+    }
+    return rawValue / sensitivity;
+}
+
+float MPU6050::convertGyro(int16_t rawValue) {
+    float sensitivity;
+    switch (gyroRange) {
+        case GYRO_RANGE_250DPS:  sensitivity = 131.0; break;
+        case GYRO_RANGE_500DPS:  sensitivity = 65.5; break;
+        case GYRO_RANGE_1000DPS: sensitivity = 32.8; break;
+        case GYRO_RANGE_2000DPS: sensitivity = 16.4; break;
+        default:                 sensitivity = 131.0; break; // Default to ±250°/s
+    }
+    return rawValue / sensitivity;
 }

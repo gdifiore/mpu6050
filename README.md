@@ -1,6 +1,8 @@
 # mpu6050
-mpu6050 - driver for the popular six-axis (accelerometer + gyroscope) sensor
+mpu6050 - very simple driver for the popular six-axis (accelerometer + gyroscope) sensor
 
-I want to write it in pure C, but am currently using the Arduino Wire library for I2C r/w.
+No fluff, just read raw values off device and convert into useful units.
 
-**Totally untested**
+I wanted to write it in pure C, but am using the Arduino `Wire` library for I2C r/w.
+
+Tested, see `example.c`.
